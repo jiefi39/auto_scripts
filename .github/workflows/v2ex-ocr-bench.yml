@@ -37,7 +37,7 @@ jobs:
       - name: 📚 安装依赖
         run: |
           pip install --upgrade pip
-          pip install ddddocr pillow
+          pip install "requests[socks]" ddddocr pillow cryptography
 
       - name: 🔬 跑基准
         working-directory: ${{ env.WORK_DIR }}
