@@ -3,8 +3,8 @@ name: 🔄 Leva  Auto Checkin
 on:
   schedule:
     # 2次签到，确保不漏签
-    - cron: '15 00 * * *'
-    - cron: '15 12 * * *'
+    - cron: '13 01 * * *'
+    - cron: '22 14 * * *'
   workflow_dispatch:
 
 permissions:
