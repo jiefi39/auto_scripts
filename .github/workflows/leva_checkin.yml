@@ -6,6 +6,15 @@ on:
     - cron: '15 00 * * *'
     - cron: '15 12 * * *'
   workflow_dispatch:
+    inputs:
+      auto_redeem:
+        description: "🎫 自动兑换月卡（定时任务跟随仓库变量 AUTO_REDEEM_MONTHLY）"
+        type: choice
+        default: "跟随仓库变量"
+        options:
+          - "跟随仓库变量"
+          - "开启"
+          - "关闭"
 
 permissions:
   contents: write
@@ -94,6 +103,8 @@ jobs:
           TG_CHAT_ID: ${{ env.TG_CHAT_ID }}
           PROXY_CONTENT: ${{ env.PROXY_CONTENT }}
           SOCKS_PORT: ${{ env.SOCKS_PORT }}
+          # 🎫 自动兑换月卡开关：手动触发按下拉框选择；定时任务跟随仓库变量 AUTO_REDEEM_MONTHLY（默认开启）
+          AUTO_REDEEM_MONTHLY: ${{ inputs.auto_redeem == '开启' && '1' || inputs.auto_redeem == '关闭' && '0' || vars.AUTO_REDEEM_MONTHLY || '1' }}
         run: python ${{ env.SCRIPT_NAME }}
 
       - name: 提交执行时间
