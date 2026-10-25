@@ -54,9 +54,20 @@ A2=2|1:0|10:1792...
 >
 > Cookie 失效**不会单独发告警**，就是按上面顺序往下走，正常出签到报告。
 >
-> **实测补充（2026-10-25，Actions 真实跑过）**：`ddddocr` 对这套哥特描边验证码
-> 8 次识别 8 次全错，所以回退到账号密码时大概率仍会登录失败 —— 这是验证码识别的限制，
-> 不是 Cookie 逻辑的问题。想让 V2EX 稳定跑，请把 `V2EX_COOKIE` 保持有效。
+> **验证码 OCR 实测（2026-10-25，Actions 真实跑过，样本见 `tools/samples/`）**：
+>
+> | 方案 | 单张命中率 |
+> | --- | --- |
+> | `denoise`（中值滤波+放大3x）+ `ddddocr beta` | **25%（2/8，最优）** |
+> | 原图 + `ddddocr beta` | 12% |
+> | 原图 / 放大 / Otsu 二值化 + std | 0% |
+> | 多方案置信度投票 | 0%（置信度和长度先验都救不回来） |
+>
+> 单张只有 ~25%，但脚本会**换图重试**：默认 `V2EX_OCR_RETRIES=15`，理论成功率 ≈ 98%。
+> 真实登录探针（`tools/login_probe.py`）实测：**第 8 次尝试登录成功**，耗时 23s。
+> 所以 Cookie 失效后回退账号密码是**真的能救回来**的，只是慢一点。
+>
+> 想跑自己的基准：`python tools/ocr_bench.py --detail`（样本在 `tools/samples/`）。
 > 配了有效 Cookie 后实测：`🍪 使用Secret Cookie：有效 → ☑️ 今日奖励已领取 → ✅ TG 发送成功`。
 
 ### 1.3 Cookie 缓存加密（`V2EX_COOKIE_KEY` / `V2EX_COOKIE_PASS`）
@@ -114,7 +125,7 @@ TG_CHAT_ID=<your_chat_id>
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
 | `V2EX_COOKIE_FILE` | `v2ex_cookie.enc.json` | 加密缓存文件名 |
-| `V2EX_OCR_RETRIES` | `8` | 验证码识别重试次数 |
+| `V2EX_OCR_RETRIES` | `15` | 验证码识别重试次数（单张 ~25%，15 次≈98%） |
 | `HY2_PROXY_URL` | 空 | `hysteria2://...` 链接，配了脚本就自己拉起本地 SOCKS5（优先级最高） |
 | `SOCKS_PORT` | `51081` | Hy2 本地 SOCKS5 监听端口 |
 | `PROXY_URL` | 空 | 已有代理时直接填，如 `socks5h://127.0.0.1:51080` |
@@ -166,7 +177,7 @@ python v2ex_checkin.py
 
 | 现象 | 原因 / 处理 |
 | --- | --- |
-| `❌ 登录失败（验证码识别失败或密码错误）` | 说明 Cookie 已失效且回退到账号密码登录，而 OCR 读不对验证码（实测 8/8 全错）。更新 `V2EX_COOKIE` 即可，调大重试次数没用 |
+| `❌ 登录失败（验证码识别失败或密码错误）` | Cookie 失效且回退登录时 15 次 OCR 都没蒙对（概率约 2%）。把 `V2EX_OCR_RETRIES` 调到 20，或更新 `V2EX_COOKIE` |
 | `⚠️ 该账号开启了 2FA` | 脚本不处理 2FA，请配 `V2EX_COOKIE` |
 | `🔒 未配置 V2EX_COOKIE_KEY / V2EX_COOKIE_PASS，为安全起见不落盘` | 正常提示：没配密钥就不缓存 Cookie，每天都会走一次密码登录 |
 | `⚠️ Cookie 解密失败（密钥不匹配？）` | 换过密钥 / 从别的库拷来的缓存。删掉 `v2ex_cookie.enc.json` 重新登录一次即可 |
