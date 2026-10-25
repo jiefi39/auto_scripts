@@ -42,3 +42,18 @@ jobs:
       - name: 🔬 跑基准
         working-directory: ${{ env.WORK_DIR }}
         run: python tools/ocr_bench.py --detail
+
+      - name: 🔑 真实登录探针（跳过 Cookie，测账号密码回退）
+        if: ${{ vars.RUN_LOGIN_PROBE == '1' }}
+        working-directory: ${{ env.WORK_DIR }}
+        env:
+          V2EX_BATCH: ${{ secrets.V2EX_BATCH }}
+          V2EX_OCR_RETRIES: "12"
+          HY2_PROXY_URL: ${{ secrets.HY2_PROXY_URL }}
+          SOCKS_PORT: ${{ secrets.SOCKS_PORT || '51081' }}
+        run: |
+          if [ -n "$HY2_PROXY_URL" ]; then
+            curl -L -o hysteria https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64
+            chmod +x hysteria && sudo mv hysteria /usr/local/bin/hysteria
+          fi
+          python tools/login_probe.py
