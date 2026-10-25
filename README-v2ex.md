@@ -39,7 +39,7 @@ username2,password2,<tg_bot_token>,<tg_chat_id>'
 | 2 列 | `username,password`（用全局 TG） |
 | 4 列 | `username,password,tg_bot_token,tg_chat_id` |
 
-### 1.2 `V2EX_COOKIE`（强烈推荐，实测必配）
+### 1.2 `V2EX_COOKIE`（强烈推荐）
 
 浏览器 F12 → Application → Cookies → `v2ex.com` → 复制 `A2` 的值：
 
@@ -47,12 +47,17 @@ username2,password2,<tg_bot_token>,<tg_chat_id>'
 A2=2|1:0|10:1792...
 ```
 
-填了它 → 脚本永远走 Cookie，**完全不碰验证码**。
+填了它 → 优先走 Cookie，正常情况**完全不碰验证码**；万一失效会自动回退账号密码登录。
 
-> **实测结论（2026-10-25，GitHub Actions 上真实跑过）**：
-> `ddddocr` 对 V2EX 这套哥特描边验证码 **8 次识别 8 次全错**（服务端返回「输入的验证码不正确」），
-> 换 std / beta 两个模型 + 放大增强预处理都一样。所以 **不配 `V2EX_COOKIE` 基本不可能登录成功**。
-> 配了 Cookie 之后实测：`🍪 使用缓存 Cookie：有效 → ☑️ 今日奖励已领取 → ✅ TG 发送成功`。
+> **登录回退顺序（脚本行为）**：
+> 1. `V2EX_COOKIE`（Secret）→ 2. 本地加密缓存 → 3. **Cookie 全失效就自动改用账号密码 + 验证码登录**
+>
+> Cookie 失效**不会单独发告警**，就是按上面顺序往下走，正常出签到报告。
+>
+> **实测补充（2026-10-25，Actions 真实跑过）**：`ddddocr` 对这套哥特描边验证码
+> 8 次识别 8 次全错，所以回退到账号密码时大概率仍会登录失败 —— 这是验证码识别的限制，
+> 不是 Cookie 逻辑的问题。想让 V2EX 稳定跑，请把 `V2EX_COOKIE` 保持有效。
+> 配了有效 Cookie 后实测：`🍪 使用Secret Cookie：有效 → ☑️ 今日奖励已领取 → ✅ TG 发送成功`。
 
 ### 1.3 Cookie 缓存加密（`V2EX_COOKIE_KEY` / `V2EX_COOKIE_PASS`）
 
@@ -161,7 +166,7 @@ python v2ex_checkin.py
 
 | 现象 | 原因 / 处理 |
 | --- | --- |
-| `❌ 登录失败（验证码识别失败或密码错误）` | OCR 对这套验证码实测无效（8/8 全错）。**必须配 `V2EX_COOKIE`**，调大重试次数没用 |
+| `❌ 登录失败（验证码识别失败或密码错误）` | 说明 Cookie 已失效且回退到账号密码登录，而 OCR 读不对验证码（实测 8/8 全错）。更新 `V2EX_COOKIE` 即可，调大重试次数没用 |
 | `⚠️ 该账号开启了 2FA` | 脚本不处理 2FA，请配 `V2EX_COOKIE` |
 | `🔒 未配置 V2EX_COOKIE_KEY / V2EX_COOKIE_PASS，为安全起见不落盘` | 正常提示：没配密钥就不缓存 Cookie，每天都会走一次密码登录 |
 | `⚠️ Cookie 解密失败（密钥不匹配？）` | 换过密钥 / 从别的库拷来的缓存。删掉 `v2ex_cookie.enc.json` 重新登录一次即可 |
