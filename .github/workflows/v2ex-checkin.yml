@@ -1,0 +1,142 @@
+name: 📮 V2EX Auto Checkin
+
+on:
+  # 手动触发
+  workflow_dispatch:
+
+  # 定时触发（UTC）：V2EX 每日登录奖励 08:00 后重置
+  # 00:25 UTC = 08:25 北京时间；12:25 UTC = 20:25 北京时间
+  schedule:
+    - cron: "25 0 * * *"
+    - cron: "25 12 * * *"
+
+permissions:
+  contents: write
+concurrency:
+  group: v2ex-checkin
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROJECT_DIR: v2ex
+      SCRIPT_NAME: v2ex_checkin.py
+      SCRIPT_DESC: V2EX 签到脚本
+      PRIVATE_REPO: jyucoeng/auto_v2ex_private
+      WORK_DIR: ${{ github.repository_owner }}-${{ github.event.repository.name }}-v2ex
+
+    steps:
+      # 步骤 1: 检出公开仓库
+      - name: 📥 检出公开仓库
+        uses: actions/checkout@v4
+
+      # 步骤 1.5: 创建输出目录
+      - name: 📁 创建输出目录
+        run: mkdir -p ${{ env.WORK_DIR }}
+
+      # 步骤 2: 检出私有仓库（脚本本体 + Cookie 缓存）
+      - name: 🔐 检出私有仓库
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PRIVATE_REPO }}
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          ref: main
+          path: ${{ env.WORK_DIR }}
+          fetch-depth: 1
+
+      # 步骤 3: 设置 Python 环境
+      - name: 🐍 设置 Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 步骤 4: 安装 Python 依赖（ddddocr 用于登录验证码识别）
+      - name: 📚 安装 Python 依赖
+        run: |
+          pip install --upgrade pip
+          pip install requests ddddocr pillow cryptography
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "⚠️ 未找到 requirements.txt，跳过"
+          fi
+        working-directory: ${{ env.WORK_DIR }}
+
+      # 步骤 5: 随机延迟（错峰）
+      - name: ⏳ 添加随机延迟
+        run: |
+          delay=$((RANDOM % 90))
+          echo "随机延迟: ${delay}秒"
+          sleep $delay
+
+      # 步骤 6: 执行脚本
+      - name: 🚀 执行 ${{ env.SCRIPT_DESC }}
+        env:
+          V2EX_BATCH: ${{ secrets.V2EX_BATCH }}
+          V2EX_COOKIE: ${{ secrets.V2EX_COOKIE }}
+          # Cookie 缓存加密：两个密钥二选一，都不配则完全不落盘
+          V2EX_COOKIE_KEY: ${{ secrets.V2EX_COOKIE_KEY }}
+          V2EX_COOKIE_PASS: ${{ secrets.V2EX_COOKIE_PASS }}
+          V2EX_COOKIE_FILE: v2ex_cookie.enc.json
+          V2EX_OCR_RETRIES: ${{ secrets.V2EX_OCR_RETRIES || '8' }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: python ${{ env.SCRIPT_NAME }}
+        working-directory: ${{ env.WORK_DIR }}
+
+      # 步骤 7: 把 Cookie 缓存写回私有仓库（下次运行免验证码）
+      - name: 💾 回写 Cookie 缓存到私有仓库
+        if: always()
+        run: |
+          cd "${{ env.WORK_DIR }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # 只提交加密缓存；顺手把历史遗留的明文文件从仓库里移除
+          if [ -f v2ex_cookie.json ]; then
+            rm -f v2ex_cookie.json
+            git rm --cached -q v2ex_cookie.json 2>/dev/null || true
+            echo "🧹 已移除明文 Cookie 缓存"
+          fi
+          if [ ! -f v2ex_cookie.enc.json ]; then
+            echo "ℹ️ 未生成加密 Cookie 缓存，跳过"
+            exit 0
+          fi
+          git add v2ex_cookie.enc.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "无变化，无需提交"
+          else
+            git commit -m "🔐 更新 V2EX 加密 Cookie 缓存: $(date +'%Y-%m-%d %H:%M:%S')"
+            git push origin HEAD:main
+            echo "✅ Cookie 已回写"
+          fi
+
+      # 步骤 8: 提交时间文件到公开库（保活）
+      - name: ⏱️ 提交时间文件
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p v2ex && echo "$(date +'%Y-%m-%d %H:%M:%S')" > v2ex/time.txt
+          git add v2ex/time.txt 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "无变化，无需提交"
+          else
+            TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
+            git commit -m "⏱️ 更新 v2ex 时间文件: $TIMESTAMP"
+            git fetch origin main
+            git push -f origin HEAD:main
+            echo "✅ 更改已推送"
+          fi
+
+      # 步骤 9: 清理旧运行记录
+      - name: 🧹 清理旧运行
+        if: always()
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          delete_workflow_pattern: ${{ github.workflow }}
+          retain_days: 7
+          keep_minimum_runs: 5

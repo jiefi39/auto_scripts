@@ -1,0 +1,132 @@
+name: 🥞 烧饼论坛 Auto Checkin
+
+on:
+  # 手动触发
+  workflow_dispatch:
+
+  # 定时触发（UTC）：2 次签到，确保不漏签
+  # 16:20 UTC = 次日 00:20 北京时间；04:20 UTC = 12:20 北京时间
+  schedule:
+    - cron: "20 16 * * *"
+    - cron: "20 4 * * *"
+
+permissions:
+  contents: write
+concurrency:
+  group: sb-checkin
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROJECT_DIR: sb
+      SCRIPT_NAME: sb_checkin.py
+      SCRIPT_DESC: 烧饼论坛 签到脚本
+      PRIVATE_REPO: jyucoeng/auto_sb_private
+
+    steps:
+      # 步骤 1: 检出公开仓库
+      - name: 📥 检出公开仓库
+        uses: actions/checkout@v4
+
+      # 步骤 1.5: 创建输出目录
+      - name: 📁 创建输出目录
+        run: mkdir -p ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ env.PROJECT_DIR }}
+
+      # 步骤 2: 检出私有仓库（脚本本体）
+      - name: 🔐 检出私有仓库
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PRIVATE_REPO }}
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          ref: main
+          path: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ env.PROJECT_DIR }}
+          fetch-depth: 1
+
+      # 步骤 3: 设置 Python 环境
+      - name: 🐍 设置 Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # 步骤 4: 安装系统依赖（虚拟显示 + 中文字体）
+      - name: 📦 安装系统依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb fonts-noto-cjk
+
+      # 步骤 5: 安装 Python 依赖
+      - name: 📚 安装 Python 依赖
+        run: |
+          pip install --upgrade pip
+          pip install requests seleniumbase pyvirtualdisplay pyautogui
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "⚠️ 未找到 requirements.txt，跳过"
+          fi
+        working-directory: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ env.PROJECT_DIR }}
+
+      # 步骤 5.5: 安装 Hysteria2（配置了代理才装）
+      - name: 📡 安装 Hysteria2
+        run: |
+          if [ -n "${{ secrets.HY2_PROXY_URL }}" ]; then
+            echo "安装 Hysteria2..."
+            curl -L -o hysteria \
+              https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64
+            chmod +x hysteria
+            sudo mv hysteria /usr/local/bin/hysteria
+            hysteria version
+            echo "✅ Hysteria2 安装完成"
+          else
+            echo "⚠️ 未配置代理，跳过 Hysteria2 安装"
+          fi
+
+      # 步骤 6: 随机延迟（错峰，降低风控概率）
+      - name: ⏳ 添加随机延迟
+        run: |
+          delay=$((RANDOM % 120))
+          echo "随机延迟: ${delay}秒"
+          sleep $delay
+
+      # 步骤 7: 执行脚本
+      - name: 🚀 执行 ${{ env.SCRIPT_DESC }}
+        env:
+          SB_BATCH: ${{ secrets.SB_BATCH }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          HY2_PROXY_URL: ${{ secrets.HY2_PROXY_URL }}
+          SOCKS_PORT: ${{ secrets.SOCKS_PORT || '51080' }}
+        run: xvfb-run -a python ${{ env.SCRIPT_NAME }}
+        working-directory: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ env.PROJECT_DIR }}
+
+      # 步骤 8: 提交时间文件（保活，避免 60 天无提交被停用）
+      - name: ⏱️ 提交时间文件
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p sb && echo "$(date +'%Y-%m-%d %H:%M:%S')" > sb/time.txt
+          git add sb/time.txt 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "无变化，无需提交"
+          else
+            TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
+            git commit -m "⏱️ 更新 sb 时间文件: $TIMESTAMP"
+            git fetch origin main
+            git push -f origin HEAD:main
+            echo "✅ 更改已推送"
+          fi
+
+      # 步骤 9: 清理旧运行记录
+      - name: 🧹 清理旧运行
+        if: always()
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          delete_workflow_pattern: ${{ github.workflow }}
+          retain_days: 7
+          keep_minimum_runs: 5
