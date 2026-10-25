@@ -110,7 +110,15 @@ TG_CHAT_ID=<your_chat_id>
 | --- | --- | --- |
 | `V2EX_COOKIE_FILE` | `v2ex_cookie.enc.json` | 加密缓存文件名 |
 | `V2EX_OCR_RETRIES` | `8` | 验证码识别重试次数 |
-| `PROXY_URL` | 空 | 需要代理时填 `socks5h://127.0.0.1:51080` |
+| `HY2_PROXY_URL` | 空 | `hysteria2://...` 链接，配了脚本就自己拉起本地 SOCKS5（优先级最高） |
+| `SOCKS_PORT` | `51081` | Hy2 本地 SOCKS5 监听端口 |
+| `PROXY_URL` | 空 | 已有代理时直接填，如 `socks5h://127.0.0.1:51080` |
+
+代理优先级：`HY2_PROXY_URL`（脚本自建）> `PROXY_URL` > 系统/环境代理。
+只要配了显式代理，脚本会设 `trust_env=False`，避免被系统代理覆盖。
+
+> ⚠️ `socks5://` / `socks5h://` 需要 **PySocks**，`requirements.txt` 已写 `requests[socks]`，
+> 缺了会报 `Missing dependencies for SOCKS support`。
 
 ---
 
@@ -160,6 +168,8 @@ python v2ex_checkin.py
 | `☑️ 今日已签到过了` | 正常，当天奖励已领 |
 | `🎁 今日奖励: 未知` | `/balance` 首行没有「每日登录奖励」记录，稍后重跑即可 |
 | Cookie 没回写私有库 | 检查 `PRIVATE_REPO_TOKEN` 是否有 `repo` 权限；私有库默认分支必须是 `main` |
+| `Missing dependencies for SOCKS support` | 缺 PySocks，`pip install "requests[socks]"`（workflow 已装） |
+| `🌐 IP 信息: xx.xx.xx.xx (US) [⚠️ 直连]` | 代理没生效：确认 `HY2_PROXY_URL` 已配成 Secret，且 workflow 的「📡 安装 Hysteria2」步骤成功 |
 
 ---
 
