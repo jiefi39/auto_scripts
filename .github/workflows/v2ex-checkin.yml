@@ -64,6 +64,21 @@ jobs:
           fi
         working-directory: ${{ env.WORK_DIR }}
 
+      # 步骤 4.5: 安装 Hysteria2（配置了 HY2_PROXY_URL 才装）
+      - name: 📡 安装 Hysteria2
+        run: |
+          if [ -n "${{ secrets.HY2_PROXY_URL }}" ]; then
+            echo "安装 Hysteria2..."
+            curl -L -o hysteria \
+              https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64
+            chmod +x hysteria
+            sudo mv hysteria /usr/local/bin/hysteria
+            hysteria version
+            echo "✅ Hysteria2 安装完成"
+          else
+            echo "⚠️ 未配置 HY2_PROXY_URL，跳过 Hysteria2 安装"
+          fi
+
       # 步骤 5: 随机延迟（错峰）
       - name: ⏳ 添加随机延迟
         run: |
@@ -83,6 +98,10 @@ jobs:
           V2EX_OCR_RETRIES: ${{ secrets.V2EX_OCR_RETRIES || '8' }}
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          # 代理：HY2_PROXY_URL 由脚本自己拉起本地 SOCKS5；也可直接给 PROXY_URL
+          HY2_PROXY_URL: ${{ secrets.HY2_PROXY_URL }}
+          SOCKS_PORT: ${{ secrets.SOCKS_PORT || '51081' }}
+          PROXY_URL: ${{ secrets.V2EX_PROXY_URL }}
         run: python ${{ env.SCRIPT_NAME }}
         working-directory: ${{ env.WORK_DIR }}
 
