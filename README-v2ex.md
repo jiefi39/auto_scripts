@@ -7,12 +7,12 @@
 
 ## 0、脚本做了什么
 
-1. 先读本地**加密**缓存 `v2ex_cookie.enc.json`（AES/Fernet），有效就直接签到 —— **免验证码**
+1. 先读**加密**缓存 `v2ex_cookie.enc.json`（AES/Fernet，存放在**公开库** `auto_scripts/v2ex/`），有效就直接签到 —— **免验证码**
 2. 缓存无效 / 不存在 → 用户名密码登录：
    - 解析登录页动态字段名（V2EX 每次会话字段名都是随机哈希）
    - 抓 `/_captcha` 图片，用 **ddddocr** 识别（实测大小写不敏感）
    - 识别失败自动换图重试，默认 8 次
-3. 登录成功 → 把 A2 Cookie **加密后**写入 `v2ex_cookie.enc.json`，workflow 自动提交回私有库，
+3. 登录成功 → 把 A2 Cookie **加密后**写入 `v2ex_cookie.enc.json`，workflow 自动提交回**公开库**，
    下次运行免验证码
 4. `GET /mission/daily` → 取 `redeem?once=` 链接 → 领取奖励
 5. 解析：今日奖励铜币（含日期）、账户余额（银币 / 铜币）
@@ -95,7 +95,7 @@ V2EX_COOKIE_PASS=YOUR_LONG_PASSPHRASE
 
 | 场景 | 结果 |
 | --- | --- |
-| 配了密钥 | Cookie 加密写 `v2ex_cookie.enc.json`（权限 `0600`），文件里没有明文 Cookie / 邮箱 |
+| 配了密钥 | Cookie 加密写 `v2ex_cookie.enc.json`（权限 `0600`），文件里没有明文 Cookie / 邮箱；CI 会把它放到公开库 `v2ex/` 下 |
 | 没配密钥 | **完全不落盘**，Cookie 只在本次进程内存里，日志会提示 |
 | 密钥不对 | 解密失败 → 视为无缓存，走密码登录，不会崩 |
 | 存在旧版明文 `v2ex_cookie.json` | 自动加密迁移并删除明文文件 |
@@ -142,10 +142,15 @@ TG_CHAT_ID=<your_chat_id>
 
 仓库 → **Settings → Actions → General → Workflow permissions** → ✅ **Read and write permissions**
 
-workflow 会做两件事：
+workflow 会做两件事（都在**公开库**里提交）：
 
-1. 把**加密的** `v2ex_cookie.enc.json` 提交回**私有库**（下次免验证码）
-2. 把 `v2ex/time.txt` 提交回公开库（保活，避免 60 天无提交被停用定时任务）
+1. 把**加密的** `v2ex/v2ex_cookie.enc.json` 提交回公开库（下次免验证码）
+2. 更新 `v2ex/time.txt`（保活，避免 60 天无提交被停用定时任务）
+
+> **为什么放公开库**：私有库可能多人共用，Cookie 放公开库反而只暴露**密文**；
+> 解密密钥 `V2EX_COOKIE_KEY` 只在 GitHub Secrets 里，公开库看不到明文。
+> workflow 里有防呆：明文 `v2ex_cookie.json` 一旦出现会被自动删除并 `git rm --cached`，
+> `.gitignore` 也挡了一层。
 
 ---
 
@@ -191,8 +196,10 @@ python v2ex_checkin.py
 
 ## 6、安全提示
 
-- `v2ex_cookie.enc.json` 是**密文**，但没有 `V2EX_COOKIE_KEY` / `V2EX_COOKIE_PASS` 也解不开；
-  密钥只放 GitHub Secrets，**不要和缓存文件放在同一个仓库**。
+- `v2ex/v2ex_cookie.enc.json` 放在公开库，但内容是**密文**；没有 `V2EX_COOKIE_KEY` / `V2EX_COOKIE_PASS`
+  解不开。**密钥只放 GitHub Secrets，永远不要提交到任何仓库**（公开库尤其不能）。
+- 公开库可见性意味着密文人人可下载，所以密钥强度直接决定安全：用 `Fernet.generate_key()` 生成的
+  128bit 随机密钥即可；不要用弱口令当 `V2EX_COOKIE_PASS`。
 - 如果怀疑泄露：V2EX → 设置 → 安全 → 「登出所有设备」，旧 Cookie 立即失效；
   再换一个 `V2EX_COOKIE_KEY` 即可。
 - `.gitignore` 已忽略 `v2ex_cookie.json`（明文），避免误提交。

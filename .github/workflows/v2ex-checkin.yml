@@ -79,6 +79,16 @@ jobs:
             echo "⚠️ 未配置 HY2_PROXY_URL，跳过 Hysteria2 安装"
           fi
 
+      # 步骤 4.6: 从公开库恢复加密 Cookie 到脚本工作目录
+      - name: 🍪 恢复加密 Cookie
+        run: |
+          if [ -f "v2ex/v2ex_cookie.enc.json" ]; then
+            cp "v2ex/v2ex_cookie.enc.json" "${{ env.WORK_DIR }}/v2ex_cookie.enc.json"
+            echo "✅ 已从公开库载入加密 Cookie 缓存"
+          else
+            echo "ℹ️ 公开库暂无加密 Cookie 缓存（首次运行或已失效）"
+          fi
+
       # 步骤 5: 随机延迟（错峰）
       - name: ⏳ 添加随机延迟
         run: |
@@ -106,48 +116,41 @@ jobs:
         working-directory: ${{ env.WORK_DIR }}
 
       # 步骤 7: 把 Cookie 缓存写回私有仓库（下次运行免验证码）
-      - name: 💾 回写 Cookie 缓存到私有仓库
+      - name: 💾 回写加密 Cookie 与时间文件到公开库
         if: always()
         run: |
-          cd "${{ env.WORK_DIR }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # 只提交加密缓存；顺手把历史遗留的明文文件从仓库里移除
-          if [ -f v2ex_cookie.json ]; then
-            rm -f v2ex_cookie.json
-            git rm --cached -q v2ex_cookie.json 2>/dev/null || true
-            echo "🧹 已移除明文 Cookie 缓存"
-          fi
-          if [ ! -f v2ex_cookie.enc.json ]; then
-            echo "ℹ️ 未生成加密 Cookie 缓存，跳过"
-            exit 0
-          fi
-          git add v2ex_cookie.enc.json 2>/dev/null || true
-          if git diff --cached --quiet; then
-            echo "无变化，无需提交"
+          mkdir -p v2ex
+
+          # 加密 Cookie 从私有库工作目录搬回公开库（只有密文，密钥在 Secrets 里）
+          if [ -f "${{ env.WORK_DIR }}/v2ex_cookie.enc.json" ]; then
+            cp "${{ env.WORK_DIR }}/v2ex_cookie.enc.json" v2ex/v2ex_cookie.enc.json
+            echo "🔐 已取回加密 Cookie 缓存"
           else
-            git commit -m "🔐 更新 V2EX 加密 Cookie 缓存: $(date +'%Y-%m-%d %H:%M:%S')"
-            git push origin HEAD:main
-            echo "✅ Cookie 已回写"
+            echo "ℹ️ 本次未生成加密 Cookie 缓存"
           fi
 
-      # 步骤 8: 提交时间文件到公开库（保活）
-      - name: ⏱️ 提交时间文件
-        if: always()
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          mkdir -p v2ex && echo "$(date +'%Y-%m-%d %H:%M:%S')" > v2ex/time.txt
-          git add v2ex/time.txt 2>/dev/null || true
+          # 防呆：公开库绝不允许出现明文 Cookie
+          if [ -f v2ex/v2ex_cookie.json ]; then
+            rm -f v2ex/v2ex_cookie.json
+            git rm --cached -q v2ex/v2ex_cookie.json 2>/dev/null || true
+            echo "🧹 已移除公开库里的明文 Cookie"
+          fi
+
+          echo "$(date +'%Y-%m-%d %H:%M:%S')" > v2ex/time.txt
+
+          git add v2ex/v2ex_cookie.enc.json v2ex/time.txt 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "无变化，无需提交"
-          else
-            TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
-            git commit -m "⏱️ 更新 v2ex 时间文件: $TIMESTAMP"
-            git fetch origin main
-            git push -f origin HEAD:main
-            echo "✅ 更改已推送"
+            exit 0
           fi
+
+          TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
+          git commit -m "🍪 更新 V2EX 加密 Cookie 与时间文件: $TIMESTAMP"
+          git pull --rebase origin main 2>/dev/null || true
+          git push origin HEAD:main
+          echo "✅ 已推送到公开库"
 
       # 步骤 9: 清理旧运行记录
       - name: 🧹 清理旧运行

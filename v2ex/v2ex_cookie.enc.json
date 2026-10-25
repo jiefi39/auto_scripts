@@ -1,0 +1,8 @@
+{
+  "v": 1,
+  "alg": "fernet-aes128-cbc-hmac",
+  "kdf": "raw-key",
+  "salt": "",
+  "updated": "2026-10-25 11:20:24",
+  "data": "gAAAAABq3eX4poSYdkvdsy6Yvru-cui_xXThHLblDFMyACzQjxBf-bc9N66P3dla2WVwINoseWc8mN-ks0AR80ulUc3XXutcBzTRJAa323f54G-ztR0mDqMcZalNJygvtCiZU_eAoy1dsDPnCDAIj76Av8309zwq5ZaUzphjIbxZrpa3y0C3VF8H51BBz4cKFVV40kkD4UgQ2Mw7qGe9RU_FDPQM0KUbj-FitjvpVXL9FHaEdShmLkacNHGG_-Epa_2D6jCM8tdCvIoCvQxkVgzi5uNnI0zW1Dt_9oMHw2RSFyGiPDtY89Mhlklj1S9GViZJx_s_JzJu"
+}

@@ -1,1 +1,5 @@
 .DS_Store
+
+# 明文 Cookie 一律禁止入库（只允许 v2ex/v2ex_cookie.enc.json 密文）
+v2ex/v2ex_cookie.json
+v2ex_cookie.json
