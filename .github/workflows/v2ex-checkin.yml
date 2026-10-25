@@ -56,7 +56,7 @@ jobs:
       - name: 📚 安装 Python 依赖
         run: |
           pip install --upgrade pip
-          pip install requests ddddocr pillow cryptography
+          pip install "requests[socks]" ddddocr pillow cryptography
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           else
