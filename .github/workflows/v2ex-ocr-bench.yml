@@ -1,0 +1,44 @@
+name: 🔬 V2EX OCR Bench
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: v2ex-ocr-bench
+  cancel-in-progress: true
+
+env:
+  WORK_DIR: ${{ github.repository_owner }}-${{ github.event.repository.name }}-v2exbench
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 检出公开仓库
+        uses: actions/checkout@v4
+
+      - name: 📁 创建目录
+        run: mkdir -p "${{ env.WORK_DIR }}"
+
+      - name: 🔐 检出私有仓库
+        uses: actions/checkout@v4
+        with:
+          repository: jyucoeng/auto_v2ex_private
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          path: ${{ env.WORK_DIR }}
+
+      - name: 🐍 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 📚 安装依赖
+        run: |
+          pip install --upgrade pip
+          pip install ddddocr pillow
+
+      - name: 🔬 跑基准
+        working-directory: ${{ env.WORK_DIR }}
+        run: python tools/ocr_bench.py --detail
