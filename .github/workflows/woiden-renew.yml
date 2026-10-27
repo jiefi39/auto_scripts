@@ -98,6 +98,13 @@ jobs:
           # 工作区内部的子目录，token 一旦落盘就有被后续步骤/误提交带出去的风险。
           persist-credentials: false
 
+      - name: 确认脚本已就位
+        run: |
+          DIR="${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ env.PROJECT_DIR }}"
+          test -f "$DIR/${{ env.SCRIPT_NAME }}" \
+            || { echo "[ERROR] 私有仓库里找不到 ${{ env.SCRIPT_NAME }}（检查 PRIVATE_REPO / 文件名）"; exit 1; }
+          echo "[INFO] 脚本已就位：$DIR/${{ env.SCRIPT_NAME }}"
+
       - name: 校验 WOIDEN_BATCH
         env:
           WOIDEN_BATCH: ${{ secrets.WOIDEN_BATCH }}
@@ -148,13 +155,6 @@ jobs:
               raise SystemExit(f"WOIDEN_BATCH 存在重复账号（会导致同一账号被续两次）：{', '.join(dupes)}")
           print(f"WOIDEN_BATCH 预检通过：{len(phones)} 个账号（{fmt}格式），凭据内容已隐藏")
           PY
-
-      - name: 确认脚本已就位
-        run: |
-          DIR="${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ env.PROJECT_DIR }}"
-          test -f "$DIR/${{ env.SCRIPT_NAME }}" \
-            || { echo "[ERROR] 私有仓库里找不到 ${{ env.SCRIPT_NAME }}（检查 PRIVATE_REPO / 文件名）"; exit 1; }
-          echo "[INFO] 脚本已就位：$DIR/${{ env.SCRIPT_NAME }}"
 
       - name: 设置 Python
         uses: actions/setup-python@v5
