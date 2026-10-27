@@ -7,8 +7,8 @@
 # 需要配置的 Secrets（仓库 Settings → Secrets and variables → Actions）：
 #   WOIDEN_BATCH        phone,tg_bot_token,tg_chat_id,tg_api_id,tg_api_hash,tg_session
 #                       （多账号用分号或字面 \n 分隔；也支持 JSON 数组，见 woiden-renew.py）
-#   WOIDEN_TG_BOT       可选，站点 TG 验证码机器人用户名，缺省 @WoidenTG_bot
-#                       ★ 登录卡在「等验证码」时优先改这个，不用改代码
+#   WOIDEN_TG_BOT       可选，站点 TG 验证码机器人用户名，缺省 @HaxTG_bot
+#                       （woiden.id 与 hax.co.id 共用同一个 bot）
 #   HY2_PROXY_URL       代理 URL。woiden.id 有 Cloudflare 挑战，强烈建议配置
 #   PRIVATE_REPO_TOKEN  有 auto_woiden_private 读权限的 PAT
 #   SOCKS_PORT          可选，缺省 10808
