@@ -26,6 +26,8 @@ jobs:
       SCREENSHOT_DIR: screenshots
       PROJECT_DIR: zampto-stan
       PRIVATE_REPO: doraemon6789/auto_zampto_private
+      # hCaptcha 图片挑战视觉兜底（glm-4v-flash，免费 key；CLIP 解不了的常识题走这里）
+      ZAMPTO_VISION_KEY: ${{ secrets.ZAMPTO_VISION_KEY }}
 
     steps:
       - name: 检出公开仓库
@@ -48,6 +50,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: 缓存 CLIP 模型
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/zampto_clip
+          key: zampto-clip-v1
+
       - name: 安装系统依赖
         run: |
           sudo apt-get update && sudo apt-get install -y xvfb fonts-noto-cjk
@@ -63,6 +71,8 @@ jobs:
           # reCAPTCHA 语音挑战：识别 + 静态 ffmpeg（不装 apt 那一大坨）
           # audioop 在 Python 3.11 里还在标准库，audioop-lts 只给 3.13+ 用，别装
           pip install 'SpeechRecognition>=3.17.0' 'imageio-ffmpeg>=0.5,<1'
+          # hCaptcha 图片挑战本地 CLIP 分类
+          pip install 'onnxruntime>=1.17.0' 'pillow>=10.0.0' 'numpy>=1.26.0'
 
       - name: 安装代理
         working-directory: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ env.PROJECT_DIR }}
