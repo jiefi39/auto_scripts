@@ -33,7 +33,7 @@ name: 🔄 Hus Auto Renew ②-mimosiwa
 
 on:
   schedule:
-    - cron: '47 0 * * *'  #每天UTC 00:47（第②份，错开避免并发）
+    - cron: '47 10 * * *'  #每天UTC 00:47（第②份，错开避免并发）
   workflow_dispatch:
 
 permissions:
