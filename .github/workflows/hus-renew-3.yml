@@ -33,7 +33,7 @@ name: 🔄 Hus Auto Renew ③-luca
 
 on:
   schedule:
-    - cron: '27 0 * * *'  #每天UTC 00:27（第③份，错开避免并发）
+    - cron: '27 11 * * *'  #每天UTC 00:27（第③份，错开避免并发）
   workflow_dispatch:
 
 permissions:
